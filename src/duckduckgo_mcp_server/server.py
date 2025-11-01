@@ -10,6 +10,8 @@ import asyncio
 from datetime import datetime, timedelta
 import time
 import re
+import os
+import logging
 
 
 @dataclass
@@ -241,9 +243,66 @@ async def fetch_content(url: str, ctx: Context) -> str:
     return await fetcher.fetch_and_parse(url, ctx)
 
 
-def main():
-    mcp.run()
+# Get project root directory path for log file path.
+# When using the stdio transmission method,
+# relative paths may cause log files to fail to create
+# due to the client's running location and permission issues,
+# resulting in the program not being able to run.
+# Thus using os.path.join(ROOT_DIR, "duckduckgo-mcp.log") instead.
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+LOG_FILE = os.path.join(ROOT_DIR, "duckduckgo-mcp.log")
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        # Referring to https://github.com/modelcontextprotocol/python-sdk/issues/409#issuecomment-2816831318
+        # The stdio mode server MUST NOT write anything to its stdout that is not a valid MCP message.
+        logging.FileHandler(LOG_FILE)
+    ],
+)
+logger = logging.getLogger("duckduckgo-mcp")
 
 
-if __name__ == "__main__":
-    main()
+def run_sse():
+    """Run DuckDuckGo MCP server in SSE mode."""
+    try:
+        logger.info("Starting DuckDuckGo MCP server with SSE transport")
+        mcp.run(transport="sse")
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server failed: {e}")
+        raise
+    finally:
+        logger.info("Server shutdown complete")
+
+
+def run_streamable_http():
+    """Run DuckDuckGo MCP server in streamable HTTP mode."""
+    try:
+        logger.info("Starting DuckDuckGo MCP server with streamable HTTP transport")
+        mcp.run(transport="streamable-http")
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server failed: {e}")
+        raise
+    finally:
+        logger.info("Server shutdown complete")
+
+
+def run_stdio():
+    """Run DuckDuckGo MCP server in stdio mode."""
+    try:
+        logger.info("Starting DuckDuckGo MCP server with stdio transport")
+        mcp.run(transport="stdio")
+    except KeyboardInterrupt:
+        logger.info("Server stopped by user")
+    except Exception as e:
+        logger.error(f"Server failed: {e}")
+        raise
+    finally:
+        logger.info("Server shutdown complete")
